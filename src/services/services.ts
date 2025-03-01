@@ -1,3 +1,4 @@
+import myLogger from "../compiler/my-logger.js";
 import {
     __String,
     ApplicableRefactorInfo,
@@ -1629,6 +1630,8 @@ export function createLanguageService(
     documentRegistry: DocumentRegistry = createDocumentRegistry(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames(), host.getCurrentDirectory(), host.jsDocParsingMode),
     syntaxOnlyOrLanguageServiceMode?: boolean | LanguageServiceMode,
 ): LanguageService {
+    const stackTrace = new Error().stack
+    myLogger.log(JSON.stringify(stackTrace));
     let languageServiceMode: LanguageServiceMode;
     if (syntaxOnlyOrLanguageServiceMode === undefined) {
         languageServiceMode = LanguageServiceMode.Semantic;
@@ -1827,6 +1830,7 @@ export function createLanguageService(
             oldProgram: program,
             projectReferences,
         };
+        myLogger.log('即将进入 createProgram')
         program = createProgram(options);
 
         // 'getOrCreateSourceFile' depends on caching but should be used past this point.

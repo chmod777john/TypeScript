@@ -1,3 +1,5 @@
+import myLogger from "./my-logger";
+myLogger.log('program.ts');
 import {
     __String,
     addInternalEmitFlags,
@@ -384,6 +386,7 @@ export function computeCommonSourceDirectoryOfFilenames(fileNames: readonly stri
 }
 
 export function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost {
+    myLogger.log('createCompilerHost');
     return createCompilerHostWorker(options, setParentNodes);
 }
 
@@ -1512,6 +1515,7 @@ export function createProgram(createProgramOptions: CreateProgramOptions): Progr
  */
 export function createProgram(rootNames: readonly string[], options: CompilerOptions, host?: CompilerHost, oldProgram?: Program, configFileParsingDiagnostics?: readonly Diagnostic[]): Program;
 export function createProgram(_rootNamesOrOptions: readonly string[] | CreateProgramOptions, _options?: CompilerOptions, _host?: CompilerHost, _oldProgram?: Program, _configFileParsingDiagnostics?: readonly Diagnostic[]): Program {
+    myLogger.log("create the fucking program");
     let _createProgramOptions = isArray(_rootNamesOrOptions) ? createCreateProgramOptions(_rootNamesOrOptions, _options!, _host, _oldProgram, _configFileParsingDiagnostics) : _rootNamesOrOptions; // TODO: GH#18217
     const { rootNames, options, configFileParsingDiagnostics, projectReferences, typeScriptVersion, host: createProgramOptionsHost } = _createProgramOptions;
     let { oldProgram } = _createProgramOptions;

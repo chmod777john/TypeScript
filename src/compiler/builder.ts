@@ -90,6 +90,7 @@ import {
     WriteFileCallback,
     WriteFileCallbackData,
 } from "./_namespaces/ts.js";
+import myLogger from "./my-logger.js";
 
 /** @internal */
 export interface ReusableDiagnostic extends ReusableDiagnosticRelatedInformation {
@@ -322,6 +323,7 @@ function createBuilderProgramState(
     newProgram: Program,
     oldState: Readonly<ReusableBuilderProgramState> | undefined,
 ): BuilderProgramState {
+    myLogger.log("createBuilderProgramState");
     const state = BuilderState.create(newProgram, oldState, /*disableUseFileVersionAsSignature*/ false) as BuilderProgramState;
     state.program = newProgram;
     const compilerOptions = newProgram.getCompilerOptions();
@@ -1674,6 +1676,7 @@ export function createBuilderProgram(
     kind: BuilderProgramKind,
     { newProgram, host, oldProgram, configFileParsingDiagnostics }: BuilderCreationParameters,
 ) {
+    myLogger.log("createBuilderProgram");
     // Return same program if underlying program doesnt change
     let oldState = oldProgram && oldProgram.state;
     if (oldState && newProgram === oldState.program && configFileParsingDiagnostics === newProgram.getConfigFileParsingDiagnostics()) {
