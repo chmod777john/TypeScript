@@ -1,3 +1,4 @@
+import myLogger from "../compiler/my-logger.js";
 import { isContextWithStartAndEndNode } from "./_namespaces/ts.FindAllReferences.js";
 import {
     AssignmentDeclarationKind,
@@ -113,36 +114,71 @@ import {
 } from "./_namespaces/ts.js";
 
 /** @internal */
+
+//@ts-ignore
+import util from 'util';
+
+
+
+// 安全序列化函数
+function safeStringify(obj: any, depth: number = 2): string {
+    return util.inspect(obj, { depth, colors: false, breakLength: Infinity });
+}
+
 export function getDefinitionAtPosition(program: Program, sourceFile: SourceFile, position: number, searchOtherFilesOnly?: boolean, stopAtAlias?: boolean): readonly DefinitionInfo[] | undefined {
+    myLogger.log("getDefinitionAtPosition: Start");
+    myLogger.log(`getDefinitionAtPosition: program=${safeStringify(program)}`);
+    myLogger.log(`getDefinitionAtPosition: sourceFile=${safeStringify(sourceFile)}`);
+    myLogger.log(`getDefinitionAtPosition: position=${position}, searchOtherFilesOnly=${searchOtherFilesOnly}, stopAtAlias=${stopAtAlias}`);
+
     const resolvedRef = getReferenceAtPosition(sourceFile, position, program);
+    myLogger.log("getDefinitionAtPosition: Calling getReferenceAtPosition");
+    myLogger.log(`getDefinitionAtPosition: getReferenceAtPosition returned resolvedRef=${safeStringify(resolvedRef)}`);
+
     const fileReferenceDefinition = resolvedRef && [getDefinitionInfoForFileReference(resolvedRef.reference.fileName, resolvedRef.fileName, resolvedRef.unverified)] || emptyArray;
+    myLogger.log("getDefinitionAtPosition: Calling getDefinitionInfoForFileReference");
+    myLogger.log(`getDefinitionAtPosition: getDefinitionInfoForFileReference returned fileReferenceDefinition=${safeStringify(fileReferenceDefinition)}`);
+
     if (resolvedRef?.file) {
-        // If `file` is missing, do a symbol-based lookup as well
+        myLogger.log("getDefinitionAtPosition: Returning fileReferenceDefinition");
         return fileReferenceDefinition;
     }
 
     const node = getTouchingPropertyName(sourceFile, position);
+    myLogger.log("getDefinitionAtPosition: Calling getTouchingPropertyName");
+    myLogger.log(`getDefinitionAtPosition: getTouchingPropertyName returned node=${safeStringify(node)}`);
     if (node === sourceFile) {
+        myLogger.log("getDefinitionAtPosition: node is sourceFile, returning undefined");
         return undefined;
     }
 
     const { parent } = node;
+    myLogger.log(`getDefinitionAtPosition: parent=${safeStringify(parent)}`);
     const typeChecker = program.getTypeChecker();
+    myLogger.log("getDefinitionAtPosition: Calling program.getTypeChecker");
+    myLogger.log(`getDefinitionAtPosition: program.getTypeChecker returned typeChecker=${safeStringify(typeChecker)}`);
 
     if (node.kind === SyntaxKind.OverrideKeyword || (isIdentifier(node) && isJSDocOverrideTag(parent) && parent.tagName === node)) {
+        myLogger.log("getDefinitionAtPosition: Handling OverrideKeyword or JSDocOverrideTag");
         const def = getDefinitionFromOverriddenMember(typeChecker, node);
+        myLogger.log("getDefinitionAtPosition: Calling getDefinitionFromOverriddenMember");
+        myLogger.log(`getDefinitionAtPosition: getDefinitionFromOverriddenMember returned def=${safeStringify(def)}`);
         if (def !== undefined || node.kind !== SyntaxKind.OverrideKeyword) {
+            myLogger.log("getDefinitionAtPosition: Returning definition from overridden member");
             return def || emptyArray;
         }
     }
 
     // Labels
     if (isJumpStatementTarget(node)) {
+        myLogger.log("getDefinitionAtPosition: Handling JumpStatementTarget");
         const label = getTargetLabel(node.parent, node.text);
+        myLogger.log("getDefinitionAtPosition: Calling getTargetLabel");
+        myLogger.log(`getDefinitionAtPosition: getTargetLabel returned label=${safeStringify(label)}`);
         return label ? [createDefinitionInfoFromName(typeChecker, label, ScriptElementKind.label, node.text, /*containerName*/ undefined!)] : undefined; // TODO: GH#18217
     }
 
-    // for switch statments
+    // for switch statements
     switch (node.kind) {
         case SyntaxKind.DefaultKeyword:
             if (!isDefaultClause(node.parent)) {
@@ -150,7 +186,10 @@ export function getDefinitionAtPosition(program: Program, sourceFile: SourceFile
             }
         // falls through
         case SyntaxKind.CaseKeyword:
+            myLogger.log("getDefinitionAtPosition: Handling switch statement");
             const switchStatement = findAncestor(node.parent, isSwitchStatement);
+            myLogger.log("getDefinitionAtPosition: Calling findAncestor");
+            myLogger.log(`getDefinitionAtPosition: findAncestor returned switchStatement=${safeStringify(switchStatement)}`);
             if (switchStatement) {
                 return [createDefinitionInfoFromSwitch(switchStatement, sourceFile)];
             }
@@ -163,42 +202,71 @@ export function getDefinitionAtPosition(program: Program, sourceFile: SourceFile
         case SyntaxKind.ReturnKeyword:
         case SyntaxKind.AwaitKeyword:
         case SyntaxKind.YieldKeyword:
+            myLogger.log("getDefinitionAtPosition: Handling function/method related keywords");
             findFunctionDecl = isFunctionLikeDeclaration;
             const functionDeclaration = findAncestor(node, findFunctionDecl) as FunctionLikeDeclaration | undefined;
+            myLogger.log("getDefinitionAtPosition: Calling findAncestor");
+            myLogger.log(`getDefinitionAtPosition: findAncestor returned functionDeclaration=${safeStringify(functionDeclaration)}`);
             return functionDeclaration ? [createDefinitionFromSignatureDeclaration(typeChecker, functionDeclaration)] : undefined;
     }
 
     if (isStaticModifier(node) && isClassStaticBlockDeclaration(node.parent)) {
+        myLogger.log("getDefinitionAtPosition: Handling static modifier in class static block");
         const classDecl = node.parent.parent;
         const { symbol, failedAliasResolution } = getSymbol(classDecl, typeChecker, stopAtAlias);
+        myLogger.log("getDefinitionAtPosition: Calling getSymbol");
+        myLogger.log(`getDefinitionAtPosition: getSymbol returned symbol=${safeStringify(symbol)}, failedAliasResolution=${safeStringify(failedAliasResolution)}`);
 
         const staticBlocks = filter(classDecl.members, isClassStaticBlockDeclaration);
+        myLogger.log("getDefinitionAtPosition: Calling filter");
+        myLogger.log(`getDefinitionAtPosition: filter returned staticBlocks=${safeStringify(staticBlocks)}`);
         const containerName = symbol ? typeChecker.symbolToString(symbol, classDecl) : "";
+        myLogger.log("getDefinitionAtPosition: Calling typeChecker.symbolToString");
+        myLogger.log(`getDefinitionAtPosition: typeChecker.symbolToString returned containerName=${containerName}`);
         const sourceFile = node.getSourceFile();
+        myLogger.log(`getDefinitionAtPosition: node.getSourceFile returned sourceFile=${safeStringify(sourceFile)}`);
         return map(staticBlocks, staticBlock => {
             let { pos } = moveRangePastModifiers(staticBlock);
+            myLogger.log("getDefinitionAtPosition: Calling moveRangePastModifiers");
+            myLogger.log(`getDefinitionAtPosition: moveRangePastModifiers returned pos=${pos}`);
             pos = skipTrivia(sourceFile.text, pos);
+            myLogger.log("getDefinitionAtPosition: Calling skipTrivia");
+            myLogger.log(`getDefinitionAtPosition: skipTrivia returned pos=${pos}`);
             return createDefinitionInfoFromName(typeChecker, staticBlock, ScriptElementKind.constructorImplementationElement, "static {}", containerName, /*unverified*/ false, failedAliasResolution, { start: pos, length: "static".length });
         });
     }
 
     let { symbol, failedAliasResolution } = getSymbol(node, typeChecker, stopAtAlias);
+    myLogger.log("getDefinitionAtPosition: Calling getSymbol");
+    myLogger.log(`getDefinitionAtPosition: getSymbol returned symbol=${safeStringify(symbol)}, failedAliasResolution=${safeStringify(failedAliasResolution)}`);
     let fallbackNode = node;
+    myLogger.log(`getDefinitionAtPosition: fallbackNode=${safeStringify(fallbackNode)}`);
 
     if (searchOtherFilesOnly && failedAliasResolution) {
+        myLogger.log("getDefinitionAtPosition: Handling failed alias resolution");
         // We couldn't resolve the specific import, try on the module specifier.
         const importDeclaration = forEach([node, ...symbol?.declarations || emptyArray], n => findAncestor(n, isAnyImportOrBareOrAccessedRequire));
+        myLogger.log("getDefinitionAtPosition: Calling forEach and findAncestor");
+        myLogger.log(`getDefinitionAtPosition: forEach and findAncestor returned importDeclaration=${safeStringify(importDeclaration)}`);
         const moduleSpecifier = importDeclaration && tryGetModuleSpecifierFromDeclaration(importDeclaration);
+        myLogger.log("getDefinitionAtPosition: Calling tryGetModuleSpecifierFromDeclaration");
+        myLogger.log(`getDefinitionAtPosition: tryGetModuleSpecifierFromDeclaration returned moduleSpecifier=${safeStringify(moduleSpecifier)}`);
         if (moduleSpecifier) {
             ({ symbol, failedAliasResolution } = getSymbol(moduleSpecifier, typeChecker, stopAtAlias));
+            myLogger.log("getDefinitionAtPosition: Calling getSymbol");
+            myLogger.log(`getDefinitionAtPosition: getSymbol returned symbol=${safeStringify(symbol)}, failedAliasResolution=${safeStringify(failedAliasResolution)}`);
             fallbackNode = moduleSpecifier;
+            myLogger.log(`getDefinitionAtPosition: fallbackNode=${safeStringify(fallbackNode)}`);
         }
     }
 
     if (!symbol && isModuleSpecifierLike(fallbackNode)) {
+        myLogger.log("getDefinitionAtPosition: Handling module specifier");
         // We couldn't resolve the module specifier as an external module, but it could
         // be that module resolution succeeded but the target was not a module.
         const ref = program.getResolvedModuleFromModuleSpecifier(fallbackNode, sourceFile)?.resolvedModule;
+        myLogger.log("getDefinitionAtPosition: Calling program.getResolvedModuleFromModuleSpecifier");
+        myLogger.log(`getDefinitionAtPosition: program.getResolvedModuleFromModuleSpecifier returned ref=${safeStringify(ref)}`);
         if (ref) {
             return [{
                 name: fallbackNode.text,
@@ -215,21 +283,32 @@ export function getDefinitionAtPosition(program: Program, sourceFile: SourceFile
     }
 
     if (isModifier(node) && (isClassElement(parent) || isNamedDeclaration(parent))) {
+        myLogger.log("getDefinitionAtPosition: Handling modifier in class element or named declaration");
         symbol = parent.symbol;
+        myLogger.log(`getDefinitionAtPosition: symbol=${safeStringify(symbol)}`);
     }
 
     // Could not find a symbol e.g. node is string or number keyword,
     // or the symbol was an internal symbol and does not have a declaration e.g. undefined symbol
     if (!symbol) {
+        myLogger.log("getDefinitionAtPosition: No symbol found, returning index signatures");
         return concatenate(fileReferenceDefinition, getDefinitionInfoForIndexSignatures(node, typeChecker));
     }
 
-    if (searchOtherFilesOnly && every(symbol.declarations, d => d.getSourceFile().fileName === sourceFile.fileName)) return undefined;
+    if (searchOtherFilesOnly && every(symbol.declarations, d => d.getSourceFile().fileName === sourceFile.fileName)) {
+        myLogger.log("getDefinitionAtPosition: All declarations are in the same file, returning undefined");
+        return undefined;
+    }
 
     const calledDeclaration = tryGetSignatureDeclaration(typeChecker, node);
+    myLogger.log("getDefinitionAtPosition: Calling tryGetSignatureDeclaration");
+    myLogger.log(`getDefinitionAtPosition: tryGetSignatureDeclaration returned calledDeclaration=${safeStringify(calledDeclaration)}`);
     // Don't go to the component constructor definition for a JSX element, just go to the component definition.
     if (calledDeclaration && !(isJsxOpeningLikeElement(node.parent) && isJsxConstructorLike(calledDeclaration))) {
+        myLogger.log("getDefinitionAtPosition: Handling called declaration");
         const sigInfo = createDefinitionFromSignatureDeclaration(typeChecker, calledDeclaration, failedAliasResolution);
+        myLogger.log("getDefinitionAtPosition: Calling createDefinitionFromSignatureDeclaration");
+        myLogger.log(`getDefinitionAtPosition: createDefinitionFromSignatureDeclaration returned sigInfo=${safeStringify(sigInfo)}`);
 
         // For a function, if this is the original function definition, return just sigInfo.
         // If this is the original constructor definition, parent is the class.
@@ -242,6 +321,8 @@ export function getDefinitionAtPosition(program: Program, sourceFile: SourceFile
             declarationFilter = (d: Declaration) => d !== calledDeclaration && (isClassDeclaration(d) || isClassExpression(d));
         }
         const defs = getDefinitionFromSymbol(typeChecker, symbol, node, failedAliasResolution, declarationFilter) || emptyArray;
+        myLogger.log("getDefinitionAtPosition: Calling getDefinitionFromSymbol");
+        myLogger.log(`getDefinitionAtPosition: getDefinitionFromSymbol returned defs=${safeStringify(defs)}`);
         // For a 'super()' call, put the signature first, else put the variable first.
         return node.kind === SyntaxKind.SuperKeyword ? [sigInfo, ...defs] : [...defs, sigInfo];
     }
@@ -252,8 +333,13 @@ export function getDefinitionAtPosition(program: Program, sourceFile: SourceFile
     // is performed at the location of property access, we would like to go to definition of the property in the short-hand
     // assignment. This case and others are handled by the following code.
     if (node.parent.kind === SyntaxKind.ShorthandPropertyAssignment) {
+        myLogger.log("getDefinitionAtPosition: Handling shorthand property assignment");
         const shorthandSymbol = typeChecker.getShorthandAssignmentValueSymbol(symbol.valueDeclaration);
+        myLogger.log("getDefinitionAtPosition: Calling typeChecker.getShorthandAssignmentValueSymbol");
+        myLogger.log(`getDefinitionAtPosition: typeChecker.getShorthandAssignmentValueSymbol returned shorthandSymbol=${safeStringify(shorthandSymbol)}`);
         const definitions = shorthandSymbol?.declarations ? shorthandSymbol.declarations.map(decl => createDefinitionInfo(decl, typeChecker, shorthandSymbol, node, /*unverified*/ false, failedAliasResolution)) : emptyArray;
+        myLogger.log("getDefinitionAtPosition: Calling createDefinitionInfo");
+        myLogger.log(`getDefinitionAtPosition: createDefinitionInfo returned definitions=${safeStringify(definitions)}`);
         return concatenate(definitions, getDefinitionFromObjectLiteralElement(typeChecker, node));
     }
 
@@ -272,15 +358,25 @@ export function getDefinitionAtPosition(program: Program, sourceFile: SourceFile
         isPropertyName(node) && isBindingElement(parent) && isObjectBindingPattern(parent.parent) &&
         (node === (parent.propertyName || parent.name))
     ) {
+        myLogger.log("getDefinitionAtPosition: Handling binding element in object binding pattern");
         const name = getNameFromPropertyName(node);
+        myLogger.log("getDefinitionAtPosition: Calling getNameFromPropertyName");
+        myLogger.log(`getDefinitionAtPosition: getNameFromPropertyName returned name=${safeStringify(name)}`);
         const type = typeChecker.getTypeAtLocation(parent.parent);
+        myLogger.log("getDefinitionAtPosition: Calling typeChecker.getTypeAtLocation");
+        myLogger.log(`getDefinitionAtPosition: typeChecker.getTypeAtLocation returned type=${safeStringify(type)}`);
         return name === undefined ? emptyArray : flatMap(type.isUnion() ? type.types : [type], t => {
             const prop = t.getProperty(name);
+            myLogger.log("getDefinitionAtPosition: Calling t.getProperty");
+            myLogger.log(`getDefinitionAtPosition: t.getProperty returned prop=${safeStringify(prop)}`);
             return prop && getDefinitionFromSymbol(typeChecker, prop, node);
         });
     }
 
     const objectLiteralElementDefinition = getDefinitionFromObjectLiteralElement(typeChecker, node);
+    myLogger.log("getDefinitionAtPosition: Calling getDefinitionFromObjectLiteralElement");
+    myLogger.log(`getDefinitionAtPosition: getDefinitionFromObjectLiteralElement returned objectLiteralElementDefinition=${safeStringify(objectLiteralElementDefinition)}`);
+    myLogger.log("getDefinitionAtPosition: Returning final definitions");
     return concatenate(fileReferenceDefinition, objectLiteralElementDefinition.length ? objectLiteralElementDefinition : getDefinitionFromSymbol(typeChecker, symbol, node, failedAliasResolution));
 }
 
